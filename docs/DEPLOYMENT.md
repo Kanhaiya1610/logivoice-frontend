@@ -6,12 +6,28 @@ The frontend deploys as a static Vite bundle through GitHub Pages. The backend r
 
 1. Create or use a repository named `logivoice-frontend`.
 2. In **Settings → Pages**, set **Source** to **GitHub Actions**.
-3. In **Settings → Secrets and variables → Actions → Variables**, add:
-   - `VITE_API_BASE_URL`: the public backend API base, for example `https://api.example.com/api/v1`.
+3. In **Settings → Secrets and variables → Actions → Variables → Repository variables**,
+   select **New repository variable** and add:
+   - Name: `VITE_API_BASE_URL`
+   - Value: `https://logivoice-backend.onrender.com/api/v1`
+   - Select **Add variable**. Do not include quotes or `VITE_API_BASE_URL=` in the value.
+4. Add another repository variable:
    - `VITE_BASE_PATH`: `/logivoice-frontend/` for the project site. Use `/` for a custom domain.
-4. Configure the backend CORS allowlist for the exact Pages origin, such as `https://<account>.github.io`, and for the local development origin when needed.
+5. Configure the backend CORS allowlist for the exact Pages origin,
+   `https://kanhaiya1610.github.io` for the current repository owner (not the repository path),
+   and for the local development origin when needed.
 
 `VITE_API_BASE_URL` is public configuration, not a secret. Do not put backend credentials, AI provider keys, database URLs, or private tokens in GitHub variables used by this build.
+
+Use **Repository variables**, not the **Secrets** tab or an environment-only variable:
+the build job reads `vars.VITE_API_BASE_URL` and does not run in the `github-pages`
+environment. Only the deploy job uses that environment. A secret with the same name
+does not populate `vars.VITE_API_BASE_URL`.
+
+The `/api/v1` suffix is required: the client appends routes such as `/auth/login` and
+`/documents`. Using only `https://logivoice-backend.onrender.com/` would send requests
+to the wrong routes. Health is available at
+`https://logivoice-backend.onrender.com/api/v1/health`.
 
 ## 2. Workflow
 
@@ -24,7 +40,23 @@ The frontend deploys as a static Vite bundle through GitHub Pages. The backend r
 5. Uploads `dist/` using the official Pages artifact action.
 6. Deploys the artifact using the official Pages deployment action.
 
-The workflow fails before deployment if lint, tests, or the production build fail.
+The build job maps repository variables once for both validation and the Vite build:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/logivoice-frontend/' }}
+```
+
+The client reads `import.meta.env.VITE_API_BASE_URL`. Vite embeds that build-time value
+in the public production JavaScript. Updating a repository variable does not update an
+already published bundle; trigger a new workflow from **Actions → Deploy frontend to
+GitHub Pages → Run workflow → main → Run workflow** after saving it.
+
+The workflow fails before deployment if lint, tests, API configuration, or the production build fail.
 
 ## 3. Local backend proxy
 

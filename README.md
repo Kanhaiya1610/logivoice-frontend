@@ -75,4 +75,9 @@ This repository is designed for a project Pages site at:
 
 Set the repository variables `VITE_API_BASE_URL` and `VITE_BASE_PATH` before running the deployment workflow. For a normal project repository, `VITE_BASE_PATH` is `/logivoice-frontend/`. The app uses hash navigation (`#/documents`, `#/document/<id>`) so refreshing a Pages URL does not request a server-side route that GitHub Pages cannot provide.
 
+For the deployed backend, set the **repository variable** `VITE_API_BASE_URL` to
+`https://logivoice-backend.onrender.com/api/v1` under **Settings → Secrets and variables
+→ Actions → Variables**. Use the Variables tab, not Secrets. The `/api/v1` prefix is
+required. Trigger a new Pages workflow after changing build-time variables.
+
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the complete workflow and backend CORS requirements.
