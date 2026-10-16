@@ -140,10 +140,38 @@ function humanizeMetadataKey(key) {
   return String(key).replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function parseVCard(value) {
+  if (typeof value !== 'string' || !/^BEGIN:VCARD/i.test(value.trim())) return null
+  const fields = {}
+  value.replace(/\r\n/g, '\n').split('\n').forEach((line) => {
+    const separator = line.indexOf(':')
+    if (separator < 0) return
+    const key = line.slice(0, separator).split(';')[0].toUpperCase()
+    const fieldValue = line.slice(separator + 1).trim()
+    if (fieldValue) fields[key] = fieldValue
+  })
+  return {
+    name: fields.FN || fields.N?.replace(';', ' ') || '',
+    organization: fields.ORG || '',
+    title: fields.TITLE || '',
+    phone: fields.TEL || '',
+    email: fields.EMAIL || '',
+    address: fields.ADR?.split(';').filter(Boolean).join(', ') || '',
+  }
+}
+
+function BarcodeValue({ code }) {
+  const vcard = parseVCard(code.data)
+  if (vcard) return <div className="metadata-vcard"><strong>{vcard.name || 'Contact card'}</strong>{vcard.organization && <span>{vcard.organization}</span>}{vcard.title && <span>{vcard.title}</span>}{vcard.phone && <a href={`tel:${vcard.phone}`}>{vcard.phone}</a>}{vcard.email && <a href={`mailto:${vcard.email}`}>{vcard.email}</a>}{vcard.address && <span>{vcard.address}</span>}</div>
+  const isUrl = typeof code.data === 'string' && /^(?:https?:\/\/|www\.)/i.test(code.data)
+  const href = isUrl && /^https?:\/\//i.test(code.data) ? code.data : `https://${code.data}`
+  return isUrl ? <a href={href} target="_blank" rel="noreferrer">{code.data}</a> : <span>{code.data || 'Empty value'}</span>
+}
+
 function MetadataValue({ field, value }) {
   if (field === 'barcodes' && Array.isArray(value)) {
     if (value.length === 0) return <span className="muted">No codes detected</span>
-    return <div className="metadata-codes">{value.map((code, index) => <div className="metadata-code" key={`${code.type}-${code.data}-${code.page ?? index}`}><span className="metadata-code-type">{code.type || 'CODE'}</span><span>{code.data || 'Empty value'}</span>{code.page && <small>Page {code.page}</small>}</div>)}</div>
+    return <div className="metadata-codes">{value.map((code, index) => <div className="metadata-code" key={`${code.type}-${code.data}-${code.page ?? index}`}><span className="metadata-code-type">{code.type || 'CODE'}</span><BarcodeValue code={code} />{code.page && <small>Page {code.page}</small>}</div>)}</div>
   }
 
   if (field === 'entities' && value && typeof value === 'object') {
