@@ -168,6 +168,16 @@ tbody tr:hover { background: #fbfcfe; }
 .metadata-list div { display: grid; gap: 4px; padding-bottom: 11px; border-bottom: 1px solid #edf0f4; }
 .metadata-list dt { color: #8997a7; font-size: 10px; text-transform: capitalize; }
 .metadata-list dd { color: var(--ink); font-size: 11px; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
+.metadata-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.metadata-chip { display: inline-flex; max-width: 100%; padding: 4px 7px; border: 1px solid #e3eaf1; border-radius: 5px; background: #f7fafd; color: var(--ink); font-size: 10px; overflow-wrap: anywhere; }
+.metadata-entities { display: grid; gap: 8px; }
+.metadata-entity-group { display: grid; gap: 4px; }
+.metadata-entity-group > small, .metadata-source { color: #8997a7; font-size: 9px; text-transform: capitalize; }
+.metadata-codes { display: grid; gap: 7px; }
+.metadata-code { display: grid; gap: 3px; padding: 7px; border: 1px solid #e3eaf1; border-radius: 6px; background: #f7fafd; color: var(--ink); overflow-wrap: anywhere; }
+.metadata-code-type { color: var(--primary); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+.metadata-code small { color: #8997a7; font-size: 9px; }
+.metadata-json { margin: 0; white-space: pre-wrap; font: 10px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .chat-panel { display: grid; gap: 14px; }
 .chat-messages { min-height: 130px; max-height: 340px; overflow: auto; display: grid; gap: 10px; align-content: start; }
 .chat-empty { min-height: 110px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 11px; text-align: center; }

@@ -136,6 +136,30 @@ function getDataValue(data, keys) {
   return undefined
 }
 
+function humanizeMetadataKey(key) {
+  return String(key).replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function MetadataValue({ field, value }) {
+  if (field === 'barcodes' && Array.isArray(value)) {
+    if (value.length === 0) return <span className="muted">No codes detected</span>
+    return <div className="metadata-codes">{value.map((code, index) => <div className="metadata-code" key={`${code.type}-${code.data}-${code.page ?? index}`}><span className="metadata-code-type">{code.type || 'CODE'}</span><span>{code.data || 'Empty value'}</span>{code.page && <small>Page {code.page}</small>}</div>)}</div>
+  }
+
+  if (field === 'entities' && value && typeof value === 'object') {
+    const groups = Object.entries(value).filter(([key, entries]) => key !== 'source' && Array.isArray(entries) && entries.length > 0)
+    return <div className="metadata-entities">{groups.map(([key, entries]) => <div className="metadata-entity-group" key={key}><small>{humanizeMetadataKey(key)}</small><div className="metadata-chips">{entries.map((entry) => <span className="metadata-chip" key={`${key}-${entry}`}>{entry}</span>)}</div></div>)}<small className="metadata-source">Source: {value.source || 'fallback'}</small></div>
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="muted">None detected</span>
+    return <div className="metadata-chips">{value.map((entry) => <span className="metadata-chip" key={String(entry)}>{String(entry)}</span>)}</div>
+  }
+
+  if (value && typeof value === 'object') return <pre className="metadata-json">{JSON.stringify(value, null, 2)}</pre>
+  return <span>{String(value)}</span>
+}
+
 function getBreakdown(data, keys) {
   const value = getDataValue(data, keys)
   if (Array.isArray(value)) {
@@ -323,7 +347,7 @@ function DocumentDetails({ document, loading, error, onBack, onRetry, onDelete, 
   if (!document) return null
 
   const metadataEntries = Object.entries(document.metadata || {}).filter(([, value]) => value !== undefined && value !== null && value !== '')
-  return <div className="detail-view"><button className="back-link" type="button" onClick={onBack}><ArrowLeft size={16} /> Back to documents</button><div className="detail-header"><div><div className="file-title"><span className="file-icon large"><FileText size={23} /></span><div><p className="eyebrow">DOCUMENT DETAIL</p><h2>{document.filename}</h2><span>{document.documentType || 'Unclassified'} · {formatBytes(document.size)}</span></div></div></div><div className="detail-actions"><StatusBadge status={document.status} /><button className="button secondary small" type="button" onClick={onDownload}><Download size={15} /> Download</button><button className="button danger small" type="button" onClick={onDelete}><Trash2 size={15} /> Delete</button></div></div>{document.error && <div className="alert error" role="alert"><AlertCircle size={17} />{document.error}</div>}<div className="detail-grid"><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">EXTRACTED CONTENT</p><h3>Text</h3></div></div>{document.extractedText ? <pre className="extracted-text">{document.extractedText}</pre> : <StateMessage icon={FileText} title="Text is not available yet" message="Text will appear when processing is complete." />}</section><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">RECORD</p><h3>Metadata</h3></div></div><dl className="metadata-list"><div><dt>Uploaded</dt><dd>{formatDate(document.createdAt)}</dd></div><div><dt>Updated</dt><dd>{formatDate(document.updatedAt)}</dd></div>{metadataEntries.map(([key, value]) => <div key={key}><dt>{key.replace(/[_-]/g, ' ')}</dt><dd>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</dd></div>)}</dl>{metadataEntries.length === 0 && <p className="muted">No additional metadata returned.</p>}</section></div><ChatPanel {...chatProps} document={document} /></div>
+  return <div className="detail-view"><button className="back-link" type="button" onClick={onBack}><ArrowLeft size={16} /> Back to documents</button><div className="detail-header"><div><div className="file-title"><span className="file-icon large"><FileText size={23} /></span><div><p className="eyebrow">DOCUMENT DETAIL</p><h2>{document.filename}</h2><span>{document.documentType || 'Unclassified'} · {formatBytes(document.size)}</span></div></div></div><div className="detail-actions"><StatusBadge status={document.status} /><button className="button secondary small" type="button" onClick={onDownload}><Download size={15} /> Download</button><button className="button danger small" type="button" onClick={onDelete}><Trash2 size={15} /> Delete</button></div></div>{document.error && <div className="alert error" role="alert"><AlertCircle size={17} />{document.error}</div>}<div className="detail-grid"><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">EXTRACTED CONTENT</p><h3>Text</h3></div></div>{document.extractedText ? <pre className="extracted-text">{document.extractedText}</pre> : <StateMessage icon={FileText} title="Text is not available yet" message="Text will appear when processing is complete." />}</section><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">RECORD</p><h3>Metadata</h3></div></div><dl className="metadata-list"><div><dt>Uploaded</dt><dd>{formatDate(document.createdAt)}</dd></div><div><dt>Updated</dt><dd>{formatDate(document.updatedAt)}</dd></div>{metadataEntries.map(([key, value]) => <div key={key}><dt>{humanizeMetadataKey(key)}</dt><dd><MetadataValue field={key} value={value} /></dd></div>)}</dl>{metadataEntries.length === 0 && <p className="muted">No additional metadata returned.</p>}</section></div><ChatPanel {...chatProps} document={document} /></div>
 }
 
 function App() {
