@@ -37,6 +37,8 @@ export const documentService = {
 
   get: async (documentId) => unwrapData(await apiClient.request(`/documents/${encodeURIComponent(documentId)}`)),
 
+  reprocess: async (documentId) => unwrapData(await apiClient.request(`/documents/${encodeURIComponent(documentId)}/reprocess`, { method: 'POST' })),
+
   upload: async (file, onProgress) => {
     const formData = new FormData()
     formData.append('files', file)
