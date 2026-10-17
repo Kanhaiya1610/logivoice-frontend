@@ -8,6 +8,9 @@ The independent React/Vite frontend for LogiVoice, a logistics document intellig
 - PDF, PNG, JPG/JPEG, and TXT upload with extension, size (25 MB default), queue, progress, and error feedback.
 - Real document listing with backend search, processing-status filters, pagination, and polling while records are processing.
 - Document details with processing status, extracted text, metadata, authenticated download, and delete actions.
+- Exact subtotal/tax/total values, currency, due date, PO/tracking references, and carrier
+  from backend metadata, plus a full-width, horizontally scrollable line-items table.
+  Missing cells show an em dash; no currency or price is inferred by the frontend.
 - Backend-provided analytics from `GET /analytics/overview`.
 - Document-grounded chat through `POST /chat`.
 - Browser SpeechRecognition voice search when available, with a visible text search field as the fallback.
@@ -66,7 +69,15 @@ npm test
 npm run build
 ```
 
-The API client test suite uses Node's built-in test runner and does not require a browser or backend server.
+API client and server-rendered metadata/table tests use Node's built-in test runner and
+do not require a browser or backend server. These tests do not replace a real browser
+layout or authenticated download smoke test.
+
+To try logistics extraction, upload the backend repository's synthetic
+`tests/fixtures/invoice_with_logistics.txt`, then open the document. Expect two line
+items and total `138.05` with currency `USD`. After deploying the backend changes,
+older documents need **Reprocess** to acquire new metadata. Complex/unrecognized table
+layouts may show the empty line-items state; their extracted text stays available.
 
 ## GitHub Pages
 

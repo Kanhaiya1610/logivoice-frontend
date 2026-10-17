@@ -30,6 +30,9 @@ import {
 } from 'lucide-react'
 import { ApiError, apiClient } from './services/apiClient.js'
 import { documentService } from './services/documentService.js'
+import LineItemsPanel from './components/LineItemsPanel.js'
+import MetadataPanel from './components/MetadataPanel.js'
+import { unwrapDocument } from './utils/unwrapDocument.js'
 import './App.css'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024
@@ -60,26 +63,6 @@ function readRoute() {
 function navigate(view, id = null) {
   const path = id ? `document/${encodeURIComponent(id)}` : view
   window.location.hash = `/${path}`
-}
-
-function unwrapDocument(value) {
-  const source = value?.document || value || {}
-  return {
-    ...source,
-    id: source.id ?? source.document_id ?? source.documentId,
-    filename: source.filename ?? source.file_name ?? source.name ?? 'Untitled document',
-    status: String(source.status ?? source.processing_status ?? source.processingStatus ?? 'unknown').toLowerCase(),
-    documentType: source.document_type ?? source.documentType ?? source.doc_type ?? source.classification ?? source.type,
-    sourceFilename: source.source_filename ?? source.sourceFilename,
-    recordIndex: source.record_index ?? source.recordIndex,
-    recordCount: source.record_count ?? source.recordCount,
-    createdAt: source.created_at ?? source.createdAt ?? source.uploaded_at ?? source.uploadedAt,
-    updatedAt: source.updated_at ?? source.updatedAt,
-    size: source.file_size ?? source.fileSize ?? source.size,
-    extractedText: source.extracted_text ?? source.extractedText ?? source.full_text ?? source.text ?? '',
-    metadata: source.metadata ?? source.extracted_data ?? source.entities ?? source.fields ?? {},
-    error: source.error ?? source.processing_error ?? source.processingError,
-  }
 }
 
 function formatDate(value) {
@@ -137,58 +120,6 @@ function getDataValue(data, keys) {
     if (data?.[key] !== undefined && data?.[key] !== null) return data[key]
   }
   return undefined
-}
-
-function humanizeMetadataKey(key) {
-  return String(key).replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function parseVCard(value) {
-  if (typeof value !== 'string' || !/^BEGIN:VCARD/i.test(value.trim())) return null
-  const fields = {}
-  value.replace(/\r\n/g, '\n').split('\n').forEach((line) => {
-    const separator = line.indexOf(':')
-    if (separator < 0) return
-    const key = line.slice(0, separator).split(';')[0].toUpperCase()
-    const fieldValue = line.slice(separator + 1).trim()
-    if (fieldValue) fields[key] = fieldValue
-  })
-  return {
-    name: fields.FN || fields.N?.replace(';', ' ') || '',
-    organization: fields.ORG || '',
-    title: fields.TITLE || '',
-    phone: fields.TEL || '',
-    email: fields.EMAIL || '',
-    address: fields.ADR?.split(';').filter(Boolean).join(', ') || '',
-  }
-}
-
-function BarcodeValue({ code }) {
-  const vcard = parseVCard(code.data)
-  if (vcard) return <div className="metadata-vcard"><strong>{vcard.name || 'Contact card'}</strong>{vcard.organization && <span>{vcard.organization}</span>}{vcard.title && <span>{vcard.title}</span>}{vcard.phone && <a href={`tel:${vcard.phone}`}>{vcard.phone}</a>}{vcard.email && <a href={`mailto:${vcard.email}`}>{vcard.email}</a>}{vcard.address && <span>{vcard.address}</span>}</div>
-  const isUrl = typeof code.data === 'string' && /^(?:https?:\/\/|www\.)/i.test(code.data)
-  const href = isUrl && /^https?:\/\//i.test(code.data) ? code.data : `https://${code.data}`
-  return isUrl ? <a href={href} target="_blank" rel="noreferrer">{code.data}</a> : <span>{code.data || 'Empty value'}</span>
-}
-
-function MetadataValue({ field, value }) {
-  if (field === 'barcodes' && Array.isArray(value)) {
-    if (value.length === 0) return <span className="muted">No codes detected</span>
-    return <div className="metadata-codes">{value.map((code, index) => <div className="metadata-code" key={`${code.type}-${code.data}-${code.page ?? index}`}><span className="metadata-code-type">{code.type || 'CODE'}</span><BarcodeValue code={code} />{code.page && <small>Page {code.page}</small>}</div>)}</div>
-  }
-
-  if (field === 'entities' && value && typeof value === 'object') {
-    const groups = Object.entries(value).filter(([key, entries]) => key !== 'source' && Array.isArray(entries) && entries.length > 0)
-    return <div className="metadata-entities">{groups.map(([key, entries]) => <div className="metadata-entity-group" key={key}><small>{humanizeMetadataKey(key)}</small><div className="metadata-chips">{entries.map((entry) => <span className="metadata-chip" key={`${key}-${entry}`}>{entry}</span>)}</div></div>)}<small className="metadata-source">Source: {value.source || 'fallback'}</small></div>
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="muted">None detected</span>
-    return <div className="metadata-chips">{value.map((entry) => <span className="metadata-chip" key={String(entry)}>{String(entry)}</span>)}</div>
-  }
-
-  if (value && typeof value === 'object') return <pre className="metadata-json">{JSON.stringify(value, null, 2)}</pre>
-  return <span>{String(value)}</span>
 }
 
 function getBreakdown(data, keys) {
@@ -377,8 +308,39 @@ function DocumentDetails({ document, loading, error, onBack, onRetry, onDelete, 
   if (error) return <div className="panel"><StateMessage title="Could not load document" message={error} action={<><button className="button secondary small" type="button" onClick={onRetry}>Try again</button><button className="button ghost small" type="button" onClick={onBack}>Back to documents</button></>} /></div>
   if (!document) return null
 
-  const metadataEntries = Object.entries(document.metadata || {}).filter(([, value]) => value !== undefined && value !== null && value !== '')
-    return <div className="detail-view"><button className="back-link" type="button" onClick={onBack}><ArrowLeft size={16} /> Back to documents</button><div className="detail-header"><div><div className="file-title"><span className="file-icon large"><FileText size={23} /></span><div><p className="eyebrow">DOCUMENT DETAIL</p><h2>{document.filename}</h2><span>{document.documentType || 'Unclassified'} · {formatBytes(document.size)}</span>{document.sourceFilename && document.sourceFilename !== document.filename && <small className="source-file">Source file: {document.sourceFilename}{document.recordCount ? ` · Record ${document.recordIndex} of ${document.recordCount}` : ''}</small>}</div></div></div><div className="detail-actions"><StatusBadge status={document.status} /><button className="button secondary small" type="button" onClick={onReprocess} disabled={reprocessing}><RefreshCw size={15} />{reprocessing ? 'Reprocessing…' : 'Reprocess'}</button><button className="button secondary small" type="button" onClick={onDownload}><Download size={15} /> Download</button><button className="button danger small" type="button" onClick={onDelete}><Trash2 size={15} /> Delete</button></div></div>{document.error && <div className="alert error" role="alert"><AlertCircle size={17} />{document.error}</div>}{document.status_message && <div className={`alert ${document.status === 'failed' ? 'error' : 'warning'}`} role="status"><AlertCircle size={17} />{document.status_message}</div>}<div className="detail-grid"><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">EXTRACTED CONTENT</p><h3>Text</h3></div></div>{document.extractedText ? <pre className="extracted-text">{document.extractedText}</pre> : <StateMessage icon={FileText} title="Text is not available yet" message="Text will appear when processing is complete." />}</section><section className="panel"><div className="panel-heading compact"><div><p className="eyebrow">RECORD</p><h3>Metadata</h3></div></div><dl className="metadata-list"><div><dt>Uploaded</dt><dd>{formatDate(document.createdAt)}</dd></div><div><dt>Updated</dt><dd>{formatDate(document.updatedAt)}</dd></div>{metadataEntries.map(([key, value]) => <div key={key}><dt>{humanizeMetadataKey(key)}</dt><dd><MetadataValue field={key} value={value} /></dd></div>)}</dl>{metadataEntries.length === 0 && <p className="muted">No additional metadata returned.</p>}</section></div><ChatPanel {...chatProps} document={document} /></div>
+  return (
+    <div className="detail-view">
+      <button className="back-link" type="button" onClick={onBack}><ArrowLeft size={16} /> Back to documents</button>
+      <div className="detail-header">
+        <div className="file-title">
+          <span className="file-icon large"><FileText size={23} /></span>
+          <div>
+            <p className="eyebrow">DOCUMENT DETAIL</p>
+            <h2>{document.filename}</h2>
+            <span>{document.documentType || 'Unclassified'} · {formatBytes(document.size)}</span>
+            {document.sourceFilename && document.sourceFilename !== document.filename && <small className="source-file">Source file: {document.sourceFilename}{document.recordCount ? ` · Record ${document.recordIndex} of ${document.recordCount}` : ''}</small>}
+          </div>
+        </div>
+        <div className="detail-actions">
+          <StatusBadge status={document.status} />
+          <button className="button secondary small" type="button" onClick={onReprocess} disabled={reprocessing}><RefreshCw size={15} />{reprocessing ? 'Reprocessing…' : 'Reprocess'}</button>
+          <button className="button secondary small" type="button" onClick={onDownload}><Download size={15} /> Download</button>
+          <button className="button danger small" type="button" onClick={onDelete}><Trash2 size={15} /> Delete</button>
+        </div>
+      </div>
+      {document.error && <div className="alert error" role="alert"><AlertCircle size={17} />{document.error}</div>}
+      {document.status_message && <div className={`alert ${document.status === 'failed' ? 'error' : 'warning'}`} role="status"><AlertCircle size={17} />{document.status_message}</div>}
+      <div className="detail-grid">
+        <section className="panel">
+          <div className="panel-heading compact"><div><p className="eyebrow">EXTRACTED CONTENT</p><h3>Text</h3></div></div>
+          {document.extractedText ? <pre className="extracted-text">{document.extractedText}</pre> : <StateMessage icon={FileText} title="Text is not available yet" message="Text will appear when processing is complete." />}
+        </section>
+        <MetadataPanel metadata={document.metadata} uploaded={formatDate(document.createdAt)} updated={formatDate(document.updatedAt)} />
+      </div>
+      <LineItemsPanel items={document.metadata?.line_items} currency={document.metadata?.currency} />
+      <ChatPanel {...chatProps} document={document} />
+    </div>
+  )
 }
 
 function App() {
@@ -657,7 +619,7 @@ function App() {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = detail.filename
+      anchor.download = detail.sourceFilename || detail.filename
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {
