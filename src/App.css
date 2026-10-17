@@ -160,6 +160,7 @@ tbody tr:hover { background: #fbfcfe; }
 .file-title { display: flex; align-items: center; gap: 13px; }
 .file-title h2 { color: var(--ink); font-size: 21px; letter-spacing: -.03em; margin: 4px 0 4px; word-break: break-word; }
 .file-title > div > span { color: var(--muted); font-size: 11px; }
+.source-file { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
 .detail-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .8fr); gap: 17px; }
 .detail-grid > .panel, .chat-panel { padding: 22px; }

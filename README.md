@@ -50,6 +50,7 @@ The backend should expose these versioned routes relative to `VITE_API_BASE_URL`
 | `POST` | `/documents` | Upload one or more `files` multipart fields |
 | `GET` | `/documents` | Search/list with `q`, `status`, `page`, and `per_page` |
 | `GET` | `/documents/{id}` | Return document detail, text, metadata, and status |
+| `POST` | `/documents/{id}/reprocess` | Re-run extraction for an owned source record |
 | `DELETE` | `/documents/{id}` | Delete an owned document |
 | `GET` | `/documents/{id}/download` | Download an owned source file |
 | `GET` | `/analytics/overview` | Return data-driven document analytics |
