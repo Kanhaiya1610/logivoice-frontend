@@ -77,8 +77,11 @@ function MetadataValue({ field, value }) {
 }
 
 export default function MetadataPanel({ metadata, uploaded, updated }) {
+  const entityGroups = metadata?.entities && typeof metadata.entities === 'object' ? metadata.entities : {}
   const entries = Object.entries(metadata || {}).filter(([key, value]) => (
-    key !== 'line_items' && (AMOUNT_FIELDS.has(key) || (value !== undefined && value !== null && value !== ''))
+    key !== 'line_items'
+    && !(Array.isArray(entityGroups[key]) && ['organizations', 'locations'].includes(key))
+    && (AMOUNT_FIELDS.has(key) || (value !== undefined && value !== null && value !== ''))
   ))
 
   return h('section', { className: 'panel' },

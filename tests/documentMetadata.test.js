@@ -174,6 +174,23 @@ test('excludes line_items from the metadata sidebar regardless of its shape', ()
   }
 })
 
+test('does not duplicate organization and location fields already grouped in entities', () => {
+  const markup = renderMetadata({
+    organizations: ['Acme Digital Solutions'],
+    locations: ['Digitaland'],
+    entities: {
+      organizations: ['Acme Digital Solutions'],
+      locations: ['Digitaland'],
+      source: 'spacy+regex',
+    },
+  })
+
+  assert.equal((markup.match(/<dt>Organizations<\/dt>/g) || []).length, 0)
+  assert.equal((markup.match(/<dt>Locations<\/dt>/g) || []).length, 0)
+  assert.match(markup, /<small>Organizations<\/small>/)
+  assert.match(markup, /<small>Locations<\/small>/)
+})
+
 test('older documents retain QR links, barcode text and pages, vCards, and grouped entities', () => {
   const document = unwrapDocument({
     file_name: 'old-manifest.pdf',
