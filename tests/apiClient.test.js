@@ -59,6 +59,30 @@ test('normalizes structured API errors into ApiError', async () => {
   )
 })
 
+test('parses JSON errors even when the request expects a blob', async () => {
+  const client = createApiClient({
+    baseUrl: '/api/v1',
+    fetchImpl: async () => new Response(JSON.stringify({
+      success: false,
+      error: { code: 'file_not_found', message: 'The document file is no longer available.' },
+    }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  })
+
+  await assert.rejects(
+    client.request('/documents/18/download', { method: 'GET', responseType: 'blob' }),
+    (error) => {
+      assert.ok(error instanceof ApiError)
+      assert.equal(error.status, 404)
+      assert.equal(error.code, 'file_not_found')
+      assert.equal(error.message, 'The document file is no longer available.')
+      return true
+    },
+  )
+})
+
 test('health uses the configured request pipeline', async () => {
   const calls = []
   const client = createApiClient({

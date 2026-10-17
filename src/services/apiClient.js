@@ -65,8 +65,8 @@ export function createApiError(responseOrError, payload = null) {
 }
 
 async function readResponseBody(response, responseType) {
-  if (responseType === 'blob') return response.blob()
   if (response.status === 204) return null
+  if (responseType === 'blob' && response.ok) return response.blob()
 
   const text = await response.text()
   if (!text) return null

@@ -139,6 +139,8 @@ tbody tr:hover { background: #fbfcfe; }
 .backend-alert { max-width: 1356px; margin: 18px auto -7px; padding-left: 14px; padding-right: 9px; }
 .backend-alert > div { display: grid; gap: 2px; flex: 1; }
 .backend-alert > div span { font-size: 10px; }
+.document-action-alert > div { display: grid; gap: 3px; flex: 1; }
+.document-action-alert > div span { font-size: 10px; }
 .success-text { color: var(--green); }
 .danger-text { color: var(--red); }
 .muted { color: var(--muted); font-size: 11px; }

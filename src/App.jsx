@@ -303,7 +303,7 @@ function AnalyticsView({ analytics, loading, error, onRetry }) {
   return <div className="analytics-view"><div className="metrics-grid"><MetricCard label="Total documents" value={total} detail="From stored records" icon={FolderOpen} /><MetricCard label="Processed" value={processed} detail="Ready to search" icon={CheckCircle2} /><MetricCard label="In progress" value={processing} detail="Awaiting extraction" icon={Clock3} /><MetricCard label="Failed" value={failed} detail="Needs review" icon={AlertCircle} /></div><section className="panel chart-panel"><div className="panel-heading compact"><div><p className="eyebrow">DISTRIBUTION</p><h2>Document types</h2><p>Classification totals returned by the backend.</p></div></div>{typeBreakdown.length === 0 ? <StateMessage icon={BarChart3} title="No type breakdown returned" message="The analytics endpoint did not include document type totals." /> : <div className="bars">{typeBreakdown.map((entry) => <div className="bar-row" key={entry.label}><div><span>{entry.label}</span><strong>{formatMetric(entry.value)}</strong></div><div className="bar-track"><span style={{ width: `${Math.max((entry.value / maxType) * 100, entry.value ? 3 : 0)}%` }} /></div></div>)}</div>}</section><section className="panel chart-panel"><div className="panel-heading compact"><div><p className="eyebrow">PROCESSING</p><h2>Status overview</h2></div></div>{statusBreakdown.length === 0 ? <StateMessage icon={Activity} title="No status breakdown returned" message="The analytics endpoint did not include processing status totals." /> : <div className="status-grid">{statusBreakdown.map((entry) => <div key={entry.label}><StatusBadge status={entry.label.toLowerCase()} /><strong>{formatMetric(entry.value)}</strong></div>)}</div>}</section></div>
 }
 
-function DocumentDetails({ document, loading, error, onBack, onRetry, onDelete, onDownload, onReprocess, reprocessing, chatProps }) {
+function DocumentDetails({ document, loading, error, actionError, sourceUnavailable, onBack, onRetry, onDelete, onDownload, onReprocess, reprocessing, chatProps }) {
   if (loading) return <div className="panel loading-block tall"><Spinner /><span>Loading document details…</span></div>
   if (error) return <div className="panel"><StateMessage title="Could not load document" message={error} action={<><button className="button secondary small" type="button" onClick={onRetry}>Try again</button><button className="button ghost small" type="button" onClick={onBack}>Back to documents</button></>} /></div>
   if (!document) return null
@@ -329,6 +329,7 @@ function DocumentDetails({ document, loading, error, onBack, onRetry, onDelete, 
         </div>
       </div>
       {document.error && <div className="alert error" role="alert"><AlertCircle size={17} />{document.error}</div>}
+      {actionError && <div className="alert error document-action-alert" role="alert"><AlertCircle size={17} /><div><strong>{sourceUnavailable ? 'Original file unavailable' : 'Document action failed'}</strong><span>{actionError}</span>{sourceUnavailable && <span>Delete this stale record and upload the original file again to process it.</span>}</div></div>}
       {document.status_message && <div className={`alert ${document.status === 'failed' ? 'error' : 'warning'}`} role="status"><AlertCircle size={17} />{document.status_message}</div>}
       <div className="detail-grid">
         <section className="panel">
@@ -371,6 +372,8 @@ function App() {
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
+  const [detailActionError, setDetailActionError] = useState('')
+  const [sourceUnavailable, setSourceUnavailable] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState([])
@@ -494,6 +497,8 @@ function App() {
     const taskId = window.setTimeout(() => {
       setDetailLoading(true)
       setDetailError('')
+      setDetailActionError('')
+      setSourceUnavailable(false)
       documentService.get(selectedDocumentId).then((response) => {
         if (active) setDetail(unwrapDocument(response))
       }).catch((error) => {
@@ -605,10 +610,12 @@ function App() {
     try {
       await documentService.remove(detail.id)
       setDetail(null)
+      setDetailActionError('')
+      setSourceUnavailable(false)
       setRoute('documents')
       await loadDocuments()
     } catch (error) {
-      setDetailError(getPayloadMessage(error, 'The document could not be deleted.'))
+      setDetailActionError(getPayloadMessage(error, 'The document could not be deleted.'))
     }
   }
 
@@ -622,22 +629,27 @@ function App() {
       anchor.download = detail.sourceFilename || detail.filename
       anchor.click()
       URL.revokeObjectURL(url)
+      setDetailActionError('')
+      setSourceUnavailable(false)
     } catch (error) {
-      setDetailError(getPayloadMessage(error, 'The document download failed.'))
+      setDetailActionError(getPayloadMessage(error, 'The document download failed.'))
+      setSourceUnavailable(error instanceof ApiError && error.code === 'file_not_found')
     }
   }
 
   async function handleReprocess() {
     if (!detail?.id || reprocessing) return
     setReprocessing(true)
-    setDetailError('')
+    setDetailActionError('')
+    setSourceUnavailable(false)
     try {
       const response = await documentService.reprocess(detail.id)
       setDetail(unwrapDocument(response))
       await loadDocuments()
       if (view === 'analytics' || view === 'dashboard') await loadAnalytics()
     } catch (error) {
-      setDetailError(getPayloadMessage(error, 'The document could not be reprocessed.'))
+      setDetailActionError(getPayloadMessage(error, 'The document could not be reprocessed.'))
+      setSourceUnavailable(error instanceof ApiError && error.code === 'file_not_found')
     } finally {
       setReprocessing(false)
     }
@@ -681,7 +693,7 @@ function App() {
     {view === 'dashboard' && <div className="page-content"><div className="welcome-row"><div><p className="eyebrow">OPERATIONS CENTER</p><h2>Good to see you{user?.name ? `, ${user.name.split(' ')[0]}` : ''}.</h2><p>Monitor ingestion, processing, and retrieval from one workspace.</p></div><button className="button secondary" type="button" onClick={() => setRoute('documents')}><FolderOpen size={17} /> View library</button></div><div className="metrics-grid"><MetricCard label="Total documents" value={metrics.total} detail="From stored records" icon={FolderOpen} /><MetricCard label="Processed" value={metrics.processed} detail="Ready to search" icon={CheckCircle2} /><MetricCard label="In progress" value={metrics.processing} detail="Awaiting extraction" icon={Clock3} /><MetricCard label="Failed" value={metrics.failed} detail="Needs review" icon={AlertCircle} /></div><UploadPanel uploadItems={uploadItems} error={uploadError} onFiles={handleFiles} onClearError={() => setUploadError('')} /><div className="library-heading"><div><p className="eyebrow">RECENT ACTIVITY</p><h2>Document library</h2></div><button className="link-button" type="button" onClick={() => setRoute('documents')}>View all <ChevronRight size={15} /></button></div><DocumentsTable documents={documents.slice(0, 5)} loading={documentsLoading} error={documentsError} page={page} pageSize={pageSize} total={Math.min(documentTotal, 5)} onPageChange={setPage} onOpen={(id) => setRoute('document', id)} onRetry={loadDocuments} /></div>}
     {view === 'documents' && <div className="page-content"><div className="page-heading"><div><p className="eyebrow">LIBRARY</p><h2>All documents</h2><p>Find records by filename, extracted content, or metadata.</p></div><button className="button primary" type="button" onClick={() => setRoute('dashboard')}><Upload size={16} /> Upload document</button></div><SearchControls search={search} status={status} onSearch={handleSearch} onStatus={(value) => { setStatus(value); setPage(1) }} onVoice={startVoiceSearch} voiceSupported={voiceSupported} listening={listening} /><DocumentsTable documents={documents} loading={documentsLoading} error={documentsError} page={page} pageSize={pageSize} total={documentTotal} onPageChange={setPage} onOpen={(id) => setRoute('document', id)} onRetry={loadDocuments} /></div>}
     {view === 'analytics' && <div className="page-content"><div className="page-heading"><div><p className="eyebrow">INSIGHTS</p><h2>Analytics overview</h2><p>Operational signals calculated from backend document records.</p></div><button className="button secondary" type="button" onClick={loadAnalytics}><RefreshCw size={16} /> Refresh</button></div><AnalyticsView analytics={analytics} loading={analyticsLoading} error={analyticsError} onRetry={loadAnalytics} /></div>}
-     {view === 'document' && <div className="page-content"><DocumentDetails document={detail} loading={detailLoading} error={detailError} onBack={() => setRoute('documents')} onRetry={() => { setView('documents'); setTimeout(() => setRoute('document', selectedDocumentId), 0) }} onDelete={handleDelete} onDownload={handleDownload} onReprocess={handleReprocess} reprocessing={reprocessing} chatProps={{ messages: chatMessages, input: chatInput, setInput: setChatInput, loading: chatLoading, error: chatError, onSend: handleChatSubmit }} /></div>}
+     {view === 'document' && <div className="page-content"><DocumentDetails document={detail} loading={detailLoading} error={detailError} actionError={detailActionError} sourceUnavailable={sourceUnavailable} onBack={() => setRoute('documents')} onRetry={() => { setView('documents'); setTimeout(() => setRoute('document', selectedDocumentId), 0) }} onDelete={handleDelete} onDownload={handleDownload} onReprocess={handleReprocess} reprocessing={reprocessing} chatProps={{ messages: chatMessages, input: chatInput, setInput: setChatInput, loading: chatLoading, error: chatError, onSend: handleChatSubmit }} /></div>}
     {view === 'chat' && <div className="page-content"><div className="page-heading"><div><p className="eyebrow">RETRIEVAL</p><h2>Document chat</h2><p>Ask questions grounded in one authenticated document at a time.</p></div></div><div className="chat-layout"><aside className="panel chat-documents"><div className="panel-heading compact"><div><h3>Select a document</h3><p>Processed records are best for chat.</p></div></div>{documents.length === 0 ? <StateMessage icon={FolderOpen} title="No documents available" message="Upload and process a document first." /> : <div className="chat-document-list">{documents.map((document) => <button className={`chat-document ${String(activeChatDocument?.id) === String(document.id) ? 'selected' : ''}`} type="button" key={document.id} onClick={() => { setDetail(document); setSelectedDocumentId(document.id); setChatMessages([]); setChatError('') }}><FileText size={17} /><span><strong>{document.filename}</strong><small>{readableStatus(document.status)}</small></span></button>)}</div>}</aside><ChatPanel {...{ document: activeChatDocument, messages: chatMessages, input: chatInput, setInput: setChatInput, loading: chatLoading, error: chatError, onSend: handleChatSubmit }} /></div></div>}
   </main></div>
 }

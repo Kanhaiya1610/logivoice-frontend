@@ -15,6 +15,9 @@ The independent React/Vite frontend for LogiVoice, a logistics document intellig
 - Document-grounded chat through `POST /chat`.
 - Browser SpeechRecognition voice search when available, with a visible text search field as the fallback.
 - Loading, empty, error, and unavailable-backend states throughout the workspace.
+- Missing source files are shown as a stale-record state without hiding the loaded metadata;
+  the user can delete the stale record and re-upload the original file. Download errors use
+  the backend's structured error code even though successful downloads are blobs.
 
 The UI does not ship document or analytics fixtures. Values displayed in the workspace come from the configured API.
 
